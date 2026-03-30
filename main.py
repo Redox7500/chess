@@ -18,9 +18,6 @@ fen_string_translation_table = str.maketrans({str(number):" " * number for numbe
 def sign(value):
     return (value > 0) - (value < 0)
 
-def string_insert(string, index, value):
-    return f"{string[:index]}{value}{string[index + 1:]}"
-
 def file_to_int(file):
     return ord(file) - 97
    
@@ -49,15 +46,12 @@ class Game:
     def print(self):
         for i, row in enumerate(self.fen_string_parts[0].translate(fen_string_translation_table).split("/")):
             print("".join([f"\x1b[{"47" if (j + i) % 2 == 0 else "40"}m{cell} \x1b[0m" for j, cell in enumerate(row)]))
-        # print("\n".join(["".join([f"\x1b[{"47" if (j + i) % 2 == 0 else "40"}m{cell} \x1b[0m" for j, cell in enumerate(row)]) for i, row in enumerate(self.fen_string_parts[0].translate(fen_string_translation_table).split("/"))]))
-        # [print("".join([f"\x1b[{"47" if (j + i) % 2 == 0 else "40"}m{cell} \x1b[0m" for j, cell in enumerate(row)])) for i, row in enumerate(self.fen_string_parts[0].translate(fen_string_translation_table).split("/"))]
     
     def get_fen_string_part_character_index(self, index):
         return len(" ".join(self.fen_string_parts[:index])) + 1
     
     def set_fen_string_part(self, index, value):
         self.fen_string = f"{self.fen_string[:self.get_fen_string_part_character_index(index)]}{value} {self.fen_string[self.get_fen_string_part_character_index(index + 1):]}"
-        # self.fen_string = string_insert(self.fen_string, self.get_fen_string_part_character_index(index), value)
 
     def get_position_index(self, position):
         current_x = 0
@@ -128,33 +122,6 @@ class Game:
             replacement = f"{empty_squares_before + 1 + empty_squares_after}"
         
         self.fen_string = f"{self.fen_string[:index - (1 if character_before_is_numeric else 0)]}{replacement}{self.fen_string[index + 1 + (1 if character_after_is_numeric else 0):]}"
-        # print(self.fen_string_parts[0])
-        # translated_row = self.fen_string_parts[0].split("/")[7 - position[1]].translate(fen_string_translation_table)
-        # print(f"a{translated_row[:position[0]][::-1]}a")
-        # empty_squares_before = 0
-        # for i in translated_row[:position[0]][::-1]:
-        #     if i != " ":
-        #         break
-
-        #     empty_squares_before += 1
-        # # empty_squares_after = 0
-        # # for i in translated_row[position[0] + 1:]:
-        # #     if i != " ":
-        # #         break
-
-        # #     empty_squares_after += 1
-        # empty_squares_after = int_previous_cell - 1 - empty_squares_before if int_previous_cell is not None else 0
-
-        # if piece != " ":
-        #     replacement = f"{empty_squares_before if empty_squares_before > 0 else ""}{piece}{empty_squares_after if empty_squares_after > 0 else ""}"
-        #     self.fen_string = string_insert(self.fen_string, index, replacement)
-        # else:
-        #     # replacement = min(int_previous_cell + 1, 8) if int_previous_cell is not None else "1"
-        #     replacement = empty_squares_before + 1 + empty_squares_after
-        #     self.fen_string = f"{self.fen_string[:index - (1 if empty_squares_before > 0 else 0)]}{replacement}{self.fen_string[index + 1 + (1 if empty_squares_after > 0 else 0):]}"
-        # print(self.fen_string)
-        # # self.fen_string = f"{self.fen_string[:index - (1 if empty_squares_before > 0 else 0)]}{replacement}{self.fen_string[index + 1 + (1 if empty_squares_after > 0 else 0)]}"
-        # # self.fen_string = string_insert(self.fen_string, index, replacement)
     
     def set_piece_at_square(self, square, piece):
         self.set_piece_at_position(square_to_position(square), piece)
@@ -165,14 +132,6 @@ class Game:
     
     def change_piece_square(self, start_square, end_square):
         self.change_piece_position(square_to_position(start_square), square_to_position(end_square))
-    
-    # def swap_positions(self, position_1, position_2):
-    #     position_1_piece = self.get_piece_at_position(position_1)
-    #     self.set_piece_at_position(position_1, self.get_piece_at_position(position_2))
-    #     self.set_piece_at_position(position_2, position_1_piece)
-    
-    # def swap_squares(self, square_1, square_2):
-    #     self.swap_position(square_to_position(square_1), square_to_position(square_2))
 
     def positions_are_empty(self, *positions):
         return all([self.get_piece_at_position(position) == " " for position in positions])
@@ -287,9 +246,8 @@ class Game:
                             [end_position[0] + 1, end_position[1] + direction]
                         ]
                     else :
-                        possible_start_positions = [[end_position[0], end_position[1] + direction]] # ordered with -2 after -1 because the -1 is like an edge case, so it goes after, should i make this just a consistent thing (e.g. see the knights pattern)?
-                                                                                                    # nvm now it uses a direction thing
-                        if end_position[1] == (3 if turn == "w" else 4): # be careful of stacked pawns going through other pawns by 2, just check it later though
+                        possible_start_positions = [[end_position[0], end_position[1] + direction]]
+                        if end_position[1] == (3 if turn == "w" else 4):
                             possible_start_positions.append([end_position[0], end_position[1] + direction * 2])
                 case "B" | "b":
                     left, right, down, up = end_position[0], 7 - end_position[0], end_position[1], 7 - end_position[1]
@@ -300,17 +258,6 @@ class Game:
                         *[[end_position[0] + i, end_position[1] + i] for i in range(1, min(right, up) + 1)]
                     ]
                 case "N" | "n":
-                    # for i in range(8):
-                    #     dx = i % 2 + 1
-                    #     new_x = end_position[0] + dx * (-1 ** (i // 2 % 2))
-                    #     if 0 > new_x or new_x > 7:
-                    #         continue
-
-                    #     new_y = end_position[1] + (dx % 2 + 1) * (-1 ** (i // 4))
-                    #     if 0 > new_y or new_y > 7:
-                    #         continue
-
-                    #     possible_start_positions.append([new_x, new_y])
                     possible_start_positions = []
                     for i in range(2):
                         dx = i % 2 + 1
@@ -377,10 +324,8 @@ class Game:
             else:
                 to_check = 0
 
-            # print(possible_start_positions)
             start_position = None
             for position in possible_start_positions:
-                # print(self.get_piece_at_position(position))
                 if (to_check == 1 and position[should_match] != suggested_start_position[should_match]) or (to_check == 2 and position != suggested_start_position) or self.get_piece_at_position(position) != piece:
                     continue
 
