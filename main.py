@@ -15,6 +15,8 @@ piece_emojis = {
 }
 fen_string_translation_table = str.maketrans({str(number):" " * number for number in range(1, 9)} | piece_emojis)
 
+simplify_move_translation_table = str.maketrans({"+":"", "#":"", "=":""})
+
 def sign(value):
     return (value > 0) - (value < 0)
 
@@ -69,16 +71,6 @@ class Game:
                 return i
             
             current_x += 1
-        # offset = 0
-        # for i, cell in enumerate(self.fen_string_parts[0].split("/")[7 - position[1]]):
-        #     if i + offset >= position[0]:
-        #         return i
-            
-        #     if cell.isnumeric():
-        #         offset += int(cell)
-
-        #     if i + offset >= position[0]:
-        #         return i
 
     def get_piece_at_position(self, position):
         cell = self.fen_string[self.get_position_index(position)]
@@ -89,9 +81,7 @@ class Game:
     
     def set_piece_at_position(self, position, piece):
         index = self.get_position_index(position)
-        # previous_cell = self.fen_string[index]
         row = self.fen_string_parts[0].split("/")[7 - position[1]]
-        # int_previous_cell = int(previous_cell) if previous_cell.isnumeric() else None
 
         current_x = 0
         i = 0
@@ -140,7 +130,7 @@ class Game:
         return self.positions_are_empty(*[square_to_position(square) for square in squares])
     
     def move(self, move):
-        simplified_move = move.replace("+", "").replace("#", "")
+        simplified_move = move.translate(simplify_move_translation_table)
 
         turn = self.fen_string_parts[1]
 
@@ -149,11 +139,15 @@ class Game:
         castle = False
         castle_side = None
         # en_passant = False
-        check = False
-        checkmate = False
 
-        capture = "x" in simplified_move
+        capture = "x" in move
+        promotion = move[-1].isupper()
+        check = "+" in move
+        checkmate = "#" in move
 
+        if promotion is not None:
+            simplified_move = simplified_move[:-1]
+            
         if simplified_move == "0-0":
             castle = True
             castle_side = "k"
@@ -192,12 +186,11 @@ class Game:
             piece = simplified_move[0]
             suggested_start_position = square_to_position(simplified_move[1:3])
             end_position = square_to_position(simplified_move[4:])
+        
+        if promotion is not None and ((turn == "w" and end_position[1] != 0) or (turn == "b" and end_position[1] != 7)):
+            raise ValueError(f"Cannot perform move {move}: cannot promote on this rank")
 
         # shit i gotta add promotions later
-        if "+" in move:
-            check = True
-        if "#" in move:
-            checkmate = True
         
         if check or checkmate:
             previous_fen_string = self.fen_string
@@ -207,10 +200,6 @@ class Game:
 
             if turn_castle_side not in self.fen_string_parts[2]:
                 raise ValueError(f"Cannot perform move {move}: cannot castle")
-            
-            # y = 0 if turn == "w" else 7
-            # self.change_piece_position([4, y], [6 if castle_side == "k" else 2, y])
-            # self.change_piece_position([7 if castle_side == "k" else 0, y], [5 if castle_side == "k" else 2, y])
             
             if turn_castle_side == "K" and self.squares_are_empty("f1", "g1"):
                 self.change_piece_square("e1", "g1")
@@ -227,7 +216,10 @@ class Game:
             else:
                 raise ValueError(f"Cannot perform move {move}: cannot castle")
             
-            self.set_fen_string_part(2, self.fen_string_parts[2].replace(turn_castle_side, ""))
+            new_fen_string_part = self.fen_string_parts[2].replace(turn_castle_side, "")
+            if new_fen_string_part == "":
+                new_fen_string_part = "-"
+            self.set_fen_string_part(2, new_fen_string_part)
         else:
             piece_at_end_position = self.get_piece_at_position(end_position)
 
@@ -235,7 +227,7 @@ class Game:
                 raise ValueError(f"Cannot perform move {move}: end position is invalid for this move")
             
             piece = piece.upper() if turn == "w" else piece.lower()
-            en_passant_target = self.fen_string_parts[3]
+            # en_passant_target = self.fen_string_parts[3]
 
             match piece:
                 case "P" | "p":
@@ -279,7 +271,6 @@ class Game:
                                 possible_start_positions.append([new_x, new_y])
                 case "R" | "r":
                     left, right, down, up = end_position[0], 7 - end_position[0], end_position[1], 7 - end_position[1]
-                    # no for loops hear haha
                     possible_start_positions = [
                         *[[end_position[0] - i, end_position[1]] for i in range(1, left + 1)],
                         *[[end_position[0] + i, end_position[1]] for i in range(1, right + 1)],
@@ -346,10 +337,17 @@ class Game:
             
             if start_position is None:
                 raise ValueError(f"Cannot perform move {move}: no piece able to perform this move was found")
-            
-            self.change_piece_position(start_position, end_position)
+
+            if promotion is None:
+                self.change_piece_position(start_position, end_position)
+            else:
+                self.set_piece_at_position(start_position, " ")
+                self.set_piece_at_position(end_position, promotion)
         
         self.set_fen_string_part(1, "b" if turn == "w" else "w")
+        self.set_fen_string_part(4, self.fen_string_parts[4] + 1 if not (capture) and piece not in ["P", "p"] else 0)
+        if turn == "b":
+            self.set_fen_string_part(5, self.fen_string_parts[5] + 1)
         
         # if not check/checkmate but it should be according to the move, self.fen_string = previous_fen_string
 
