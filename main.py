@@ -138,8 +138,7 @@ class Game:
         piece = None
         suggested_start_position = None
         end_position = None
-        castle = False
-        castle_side = None
+        castle = None
         # en_passant = False
 
         capture = "x" in move
@@ -151,11 +150,9 @@ class Game:
             simplified_move = simplified_move[:-1]
             
         if simplified_move == "0-0":
-            castle = True
-            castle_side = "k"
+            castle = "k"
         elif simplified_move == "0-0-0":
-            castle = True
-            castle_side = "q"
+            castle = "q"
         # elif simplified_move[5:] == "e.p.":
         #     piece = "p"
         #     en_passant = True
@@ -198,23 +195,25 @@ class Game:
         
         if check or checkmate:
             previous_fen_string = self.fen_string
+        
+        piece = piece.upper() if turn == "w" else piece.lower()
        
-        if castle:
-            turn_castle_side = castle_side.upper() if turn == "w" else castle_side.lower()
+        if castle is not None:
+            castle = castle.upper() if turn == "w" else castle.lower()
 
-            if turn_castle_side not in self.fen_string_parts[2]:
+            if castle not in self.fen_string_parts[2]:
                 raise ValueError(f"Cannot perform move {move}: cannot castle")
             
-            if turn_castle_side == "K" and self.squares_are_empty("f1", "g1"):
+            if castle == "K" and self.squares_are_empty("f1", "g1"):
                 self.change_piece_square("e1", "g1")
                 self.change_piece_square("h1", "f1")
-            elif turn_castle_side == "Q" and self.squares_are_empty("d1", "c1"):
+            elif castle == "Q" and self.squares_are_empty("d1", "c1"):
                 self.change_piece_square("e1", "c1")
                 self.change_piece_square("a1", "d1")
-            elif turn_castle_side == "k" and self.squares_are_empty("f8", "g8"):
+            elif castle == "k" and self.squares_are_empty("f8", "g8"):
                 self.change_piece_square("e8", "g8")
                 self.change_piece_square("h8", "f8")
-            elif turn_castle_side == "q" and self.squares_are_empty("d8", "c8"):
+            elif castle == "q" and self.squares_are_empty("d8", "c8"):
                 self.change_piece_square("e8", "c8")
                 self.change_piece_square("a8", "d8")
             else:
