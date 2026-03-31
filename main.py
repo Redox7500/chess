@@ -190,13 +190,11 @@ class Game:
             end_position = square_to_position(simplified_move[4:])
         
         if promotion is not None:
-            if (turn == "w" and end_position[1] != 0) or (turn == "b" and end_position[1] != 7):
+            if (turn == "w" and end_position[1] != 7) or (turn == "b" and end_position[1] != 0):
                 raise ValueError(f"Cannot perform move {move}: cannot promote on this rank")
         else:
-            if piece in ["P", "p"] and ((turn == "w" and end_position[1] == 0) or (turn == "b" and end_position[1] == 7)):
+            if piece in ["P", "p"] and ((turn == "w" and end_position[1] == 7) or (turn == "b" and end_position[1] == 0)):
                 raise ValueError(f"Cannot perform move {move}: move should be written as a promotion")
-
-        # shit i gotta add promotions later
         
         if check or checkmate:
             previous_fen_string = self.fen_string
@@ -372,16 +370,17 @@ class Game:
 
         self.move_history.append(move)
 
-game = Game(fen_string="r1bqkbnr/ppppppPp/2n5/8/8/8/PPPPPPP1/RNBQKBNR w KQkq - 1 5")
+# game = Game(fen_string="r1bqkbnr/ppppppPp/2n5/8/8/8/PPPPPPP1/RNBQKBNR w KQkq - 1 5")
+game = Game()
 
-previous_moves = [
-    "e4", "e5",
-    "Nf3", "Nf6",
-    "Bc4", "Bc5",
-    # "0-0"
-]
-for move in previous_moves:
-    game.move(move)
+# previous_moves = [
+#     "e4", "e5",
+#     "Nf3", "Nf6",
+#     "Bc4", "Bc5",
+#     # "0-0"
+# ]
+# for move in previous_moves:
+#     game.move(move)
 
 user_input = None
 while True:
@@ -417,4 +416,4 @@ while True:
     
     print("\x1b[1;1H\x1b[2J\x1b[3J", end="")
 
-    # add 75 move rule
+    # add 75 move rule and 50 move rule ig
