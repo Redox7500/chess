@@ -1,16 +1,16 @@
 piece_emojis = {
-    "p":"♙",
-    "b":"♗",
-    "n":"♘",
-    "r":"♖",
-    "q":"♕",
-    "k":"♔",
-    "P":"♟",
-    "B":"♝",
-    "N":"♞",
-    "R":"♜",
-    "Q":"♛",
-    "K":"♚",
+    "P":"♙",
+    "B":"♗",
+    "N":"♘",
+    "R":"♖",
+    "Q":"♕",
+    "K":"♔",
+    "p":"♟",
+    "b":"♝",
+    "n":"♞",
+    "r":"♜",
+    "q":"♛",
+    "k":"♚",
     " ":" "
 }
 fen_string_translation_table = str.maketrans({str(number):" " * number for number in range(1, 9)} | piece_emojis)
@@ -39,7 +39,7 @@ def square_to_position(square):
 class Game:
     def __init__(self, fen_string="rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"):
         self.fen_string = fen_string
-        self.history = []
+        self.move_history = []
 
     @property
     def fen_string_parts(self):
@@ -47,7 +47,8 @@ class Game:
     
     def print(self):
         for i, row in enumerate(self.fen_string_parts[0].translate(fen_string_translation_table).split("/")):
-            print("".join([f"\x1b[{"47" if (j + i) % 2 == 0 else "40"}m{cell} \x1b[0m" for j, cell in enumerate(row)]))
+            print(f"{8 - i} {"".join([f"\x1b[{"47" if (j + i) % 2 == 0 else "40"}m{cell} \x1b[0m" for j, cell in enumerate(row)])}")
+        print("  a b c d e f g h\n")
     
     def get_fen_string_part_character_index(self, index):
         return len(" ".join(self.fen_string_parts[:index])) + 1
@@ -134,6 +135,7 @@ class Game:
 
         turn = self.fen_string_parts[1]
 
+        piece = None
         suggested_start_position = None
         end_position = None
         castle = False
@@ -141,7 +143,7 @@ class Game:
         # en_passant = False
 
         capture = "x" in move
-        promotion = move[-1].isupper()
+        promotion = move[-1] if move[-1].isupper() else None
         check = "+" in move
         checkmate = "#" in move
 
@@ -187,8 +189,12 @@ class Game:
             suggested_start_position = square_to_position(simplified_move[1:3])
             end_position = square_to_position(simplified_move[4:])
         
-        if promotion is not None and ((turn == "w" and end_position[1] != 0) or (turn == "b" and end_position[1] != 7)):
-            raise ValueError(f"Cannot perform move {move}: cannot promote on this rank")
+        if promotion is not None:
+            if (turn == "w" and end_position[1] != 0) or (turn == "b" and end_position[1] != 7):
+                raise ValueError(f"Cannot perform move {move}: cannot promote on this rank")
+        else:
+            if piece in ["P", "p"] and ((turn == "w" and end_position[1] == 0) or (turn == "b" and end_position[1] == 7)):
+                raise ValueError(f"Cannot perform move {move}: move should be written as a promotion")
 
         # shit i gotta add promotions later
         
@@ -216,7 +222,10 @@ class Game:
             else:
                 raise ValueError(f"Cannot perform move {move}: cannot castle")
             
-            new_fen_string_part = self.fen_string_parts[2].replace(turn_castle_side, "")
+            if turn == "w":
+                new_fen_string_part = self.fen_string_parts[2].replace("K", "").replace("Q", "")
+            else:
+                new_fen_string_part = self.fen_string_parts[2].replace("k", "").replace("q", "")
             if new_fen_string_part == "":
                 new_fen_string_part = "-"
             self.set_fen_string_part(2, new_fen_string_part)
@@ -345,24 +354,34 @@ class Game:
                 self.set_piece_at_position(end_position, promotion)
         
         self.set_fen_string_part(1, "b" if turn == "w" else "w")
-        self.set_fen_string_part(4, self.fen_string_parts[4] + 1 if not (capture) and piece not in ["P", "p"] else 0)
+        if piece == "R":
+            if start_position == [7, 0]:
+                self.set_fen_string_part(2, self.fen_string_parts[2].replace("K", ""))
+            if start_position == [0, 0]:
+                self.set_fen_string_part(2, self.fen_string_parts[2].replace("Q", ""))
+        if piece == "r":
+            if start_position == [7, 7]:
+                self.set_fen_string_part(2, self.fen_string_parts[2].replace("k", ""))
+            if start_position == [0, 7]:
+                self.set_fen_string_part(2, self.fen_string_parts[2].replace("q", ""))
+        self.set_fen_string_part(4, int(self.fen_string_parts[4]) + 1 if not (capture or piece in ["P", "p"]) else 0) # check if this goes over 100?
         if turn == "b":
-            self.set_fen_string_part(5, self.fen_string_parts[5] + 1)
+            self.set_fen_string_part(5, int(self.fen_string_parts[5]) + 1)
         
         # if not check/checkmate but it should be according to the move, self.fen_string = previous_fen_string
 
-        self.history.append(move)
+        self.move_history.append(move)
 
-game = Game()
+game = Game(fen_string="r1bqkbnr/ppppppPp/2n5/8/8/8/PPPPPPP1/RNBQKBNR w KQkq - 1 5")
 
-# previous_moves = [
-#     "e4", "e5",
-#     "Nf3", "Nf6",
-#     "Bc4", "Bc5",
-#     "0-0"
-# ]
-# for move in previous_moves:
-#     game.move(move)
+previous_moves = [
+    "e4", "e5",
+    "Nf3", "Nf6",
+    "Bc4", "Bc5",
+    # "0-0"
+]
+for move in previous_moves:
+    game.move(move)
 
 user_input = None
 while True:
@@ -372,8 +391,30 @@ while True:
     if user_input == "stop":
         break
 
-    try:
-        game.move(user_input)
-    except BaseException as error:
-        print(f"bad move: {error}")
-    print()
+    match user_input:
+        case "stop":
+            break
+        case "fen" | "history" | "draw" | "resign":
+            print()
+            match user_input:
+                case "fen":
+                    print(f"Current FEN string: {game.fen_string}")
+                case "history":
+                    print(f"Current game history:\n{"\n".join(game.move_history)}")
+                case "draw":
+                    print("Draw offered")
+                    ...
+                case "resign":
+                    print("idk")
+                    ...
+            
+            input("\nPress 'Enter' to continue")
+        case _:
+            try:
+                game.move(user_input)
+            except BaseException as error:
+                print(f"Bad move: {error}")
+    
+    print("\x1b[1;1H\x1b[2J\x1b[3J", end="")
+
+    # add 75 move rule
