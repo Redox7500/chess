@@ -21,7 +21,7 @@ def sign(value):
     return (value > 0) - (value < 0)
 
 def file_to_int(file):
-    return ord(file) - 97
+    return ord(file.lower()) - 97
    
 def rank_to_int(rank):
     return 8 - int(rank)
@@ -297,8 +297,8 @@ class Game:
             if promotion is None:
                 self.change_piece_position(start_position, end_position)
             else:
-                self.set_piece_at_position(start_position, " ")
-                self.set_piece_at_position(end_position, promotion)
+                self.board[start_position[1]][start_position[0]] = " "
+                self.board[end_position[1]][end_position[0]] = promotion
         
         if piece is not None:
             if piece.lower() == "r":
@@ -339,8 +339,14 @@ game = Game()
 #     "Bc4", "Bc5",
 #     # "0-0"
 # ]
-# for move in previous_moves:
-#     game.move(move)
+previous_moves = [
+    "h4", "Nc6",
+    "h5", "Nb8",
+    "h6", "Nc6",
+    "hxg7", "Nb8",
+]
+for move in previous_moves:
+    game.move(move)
 
 user_input = None
 while True:
