@@ -125,14 +125,7 @@ class Game:
         elif len(simplified_move) == 5:
             piece = simplified_move[0]
             end_position = square_to_position(simplified_move[3:])
-            if capture:
-                suggested_start_position = [None, rank_to_int(simplified_move[1])] if simplified_move[1].isnumeric() else [file_to_int(simplified_move[1]), None]
-            else:
-                suggested_start_position = square_to_position(simplified_move[1:3])
-        elif len(simplified_move) == 6:
-            piece = simplified_move[0]
-            suggested_start_position = square_to_position(simplified_move[1:3])
-            end_position = square_to_position(simplified_move[4:])
+            suggested_start_position = [None, rank_to_int(simplified_move[1])] if simplified_move[1].isnumeric() else [file_to_int(simplified_move[1]), None]
         
         if promotion is None:
             print(end_position[1])
