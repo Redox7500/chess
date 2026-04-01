@@ -77,9 +77,6 @@ class Game:
         self.board[end_position[1]][end_position[0]] = self.board[start_position[1]][start_position[0]]
         self.board[start_position[1]][start_position[0]] = " "
     
-    def change_piece_square(self, start_square, end_square):
-        self.change_piece_position(square_to_position(start_square), square_to_position(end_square))
-    
     def move(self, move):
         simplified_move = move.translate(simplify_move_translation_table)
 
@@ -87,7 +84,7 @@ class Game:
         suggested_start_position = None
         end_position = None
         castle = None
-        # en_passant = False
+        en_passant = False
 
         capture = "x" in move
         promotion = move[-1] if move[-1].isupper() else None
@@ -101,10 +98,11 @@ class Game:
             castle = "k"
         elif simplified_move == "0-0-0":
             castle = "q"
-        # elif simplified_move[5:] == "e.p.":
-        #     piece = "p"
-        #     en_passant = True
-        #     start_position = [file_to_int(simplified_move[0]), rank_to_int(simplified_move[3]) - 1]
+        elif simplified_move[5:] == "e.p.":
+            piece = "p"
+            en_passant = True
+            start_position = [file_to_int(simplified_move[0]), rank_to_int(simplified_move[3]) - 1]
+            end_position = self.en_passant_target
         elif len(simplified_move) == 2:
             piece = "p"
             end_position = square_to_position(simplified_move)
@@ -126,7 +124,7 @@ class Game:
             piece = simplified_move[0]
             end_position = square_to_position(simplified_move[3:])
             suggested_start_position = [None, rank_to_int(simplified_move[1])] if simplified_move[1].isnumeric() else [file_to_int(simplified_move[1]), None]
-        
+
         if promotion is None:
             print(end_position[1])
             if piece.lower() == "p" and ((self.turn == "w" and end_position[1] == 0) or (self.turn == "b" and end_position[1] == 7)):
@@ -135,9 +133,12 @@ class Game:
             if (self.turn == "w" and end_position[1] != 0) or (self.turn == "b" and end_position[1] != 7):
                 raise ValueError(f"Cannot perform move {move}: cannot promote on this rank")
         
+        if piece.lower() == "p" and end_position == self.en_passant_target:
+            en_passant = True
+        
         if check or checkmate:
             previous_fen_string = self.fen_string
-       
+        
         if castle is not None:
             castle = castle.upper() if self.turn == "w" else castle.lower()
 
@@ -163,10 +164,19 @@ class Game:
                 self.castle_rights["K"] = self.castle_rights["Q"] = False
             else:
                 self.castle_rights["k"] = self.castle_rights["q"] = False
+        elif en_passant:
+            if end_position is None:
+                raise ValueError(f"Cannot perform move {move}: no en passant target found")
+            
+            if end_position[0] - start_position[0] != 1 or end_position[1] - start_position[1] != (-1 if self.turn == "w" else 1):
+                raise ValueError(f"Cannot perform move {move}: pawn cannot capture en passant in this way")
+            
+            self.change_piece_position(start_position, end_position)
+            self.board[end_position[1] + (-1 if self.turn == "w" else 1)][end_position[0]] = " "
         else:
             piece_at_end_position = self.board[end_position[1]][end_position[0]]
 
-            if (capture and (piece_at_end_position == " " or (self.turn == "w" and piece_at_end_position.isupper()) or (self.turn == "b" and piece_at_end_position.islower()))) or (not (capture) and piece_at_end_position != " "):
+            if (capture and piece.lower() != "p" and (piece_at_end_position == " " or (self.turn == "w" and piece_at_end_position.isupper()) or (self.turn == "b" and piece_at_end_position.islower()))) or (not (capture) and piece_at_end_position != " "):
                 raise ValueError(f"Cannot perform move {move}: end position is invalid for this move")
             
             # en_passant_target = self.fen_string_parts[3]
@@ -290,17 +300,23 @@ class Game:
                 self.set_piece_at_position(start_position, " ")
                 self.set_piece_at_position(end_position, promotion)
         
-        if piece is not None and piece.lower() == "r":
-            if self.turn == "w":
-                if start_position == [7, 0]:
-                    self.castle_rights["K"] = False
-                if start_position == [0, 0]:
-                    self.castle_rights["Q"] = False
+        if piece is not None:
+            if piece.lower() == "r":
+                if self.turn == "w":
+                    if start_position == [7, 0]:
+                        self.castle_rights["K"] = False
+                    if start_position == [0, 0]:
+                        self.castle_rights["Q"] = False
+                else:
+                    if start_position == [7, 7]:
+                        self.castle_rights["k"] = False
+                    if start_position == [0, 7]:
+                        self.castle_rights["q"] = False
+
+            if piece.lower() == "p" and abs(end_position[1] - start_position[1]) == 2:
+                self.en_passant_target = [end_position[0], end_position[1] + (1 if self.turn == "w" else -1)]
             else:
-                if start_position == [7, 7]:
-                    self.castle_rights["k"] = False
-                if start_position == [0, 7]:
-                    self.castle_rights["q"] = False
+                self.en_passant_target = None
 
         if len(self.move_history) == 0:
             self.move_history.append([])
@@ -308,9 +324,9 @@ class Game:
         if self.turn == "b":
             self.move_history.append([])
 
-        self.turn = "b" if self.turn == "w" else "w"
-
         self.halfmove_clock = self.halfmove_clock + 1 if (piece is None or piece.lower() != "p") and not capture else 0 # check if this goes over 100?
+
+        self.turn = "b" if self.turn == "w" else "w"
         
         # if not check/checkmate but it should be according to the move, self.fen_string = previous_fen_string
 
