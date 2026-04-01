@@ -24,7 +24,7 @@ def file_to_int(file):
     return ord(file) - 97
    
 def rank_to_int(rank):
-    return int(rank) - 1
+    return 8 - int(rank)
 
 def square_to_position(square):
     x = file_to_int(square[0])
@@ -37,103 +37,51 @@ def square_to_position(square):
     return [x, y]
 
 class Game:
-    def __init__(self, fen_string="rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"):
-        self.fen_string = fen_string
+    def __init__(self):
+        self.board = [
+            ["r", "n", "b", "q", "k", "b", "n", "r"],
+            ["p", "p", "p", "p", "p", "p", "p", "p"],
+            [" ", " ", " ", " ", " ", " ", " ", " "],
+            [" ", " ", " ", " ", " ", " ", " ", " "],
+            [" ", " ", " ", " ", " ", " ", " ", " "],
+            [" ", " ", " ", " ", " ", " ", " ", " "],
+            ["P", "P", "P", "P", "P", "P", "P", "P"],
+            ["R", "N", "B", "Q", "K", "B", "N", "R"]
+        ]
+        self.turn = "w"
+        self.castle_rights = {
+            "K":True,
+            "Q":True,
+            "k":True,
+            "q":True
+        }
+        self.en_passant_target = None
+        self.halfmove_clock = 0
         self.move_history = []
-
+    
     @property
-    def fen_string_parts(self):
-        return self.fen_string.split(" ")
+    def flipped_board(self):
+        return [row[::-1] for row in self.board[::-1]]
     
-    def print(self):
-        for i, row in enumerate(self.fen_string_parts[0].translate(fen_string_translation_table).split("/")):
-            print(f"{8 - i} {"".join([f"\x1b[{"47" if (j + i) % 2 == 0 else "40"}m{cell} \x1b[0m" for j, cell in enumerate(row)])}")
-        print("  a b c d e f g h\n")
-    
-    def get_fen_string_part_character_index(self, index):
-        return len(" ".join(self.fen_string_parts[:index])) + 1
-    
-    def set_fen_string_part(self, index, value):
-        self.fen_string = f"{self.fen_string[:self.get_fen_string_part_character_index(index)]}{value} {self.fen_string[self.get_fen_string_part_character_index(index + 1):]}"
-
-    def get_position_index(self, position):
-        current_x = 0
-        current_y = 7
-        for i, character in enumerate(self.fen_string_parts[0]):
-            if character == "/":
-                current_x = 0
-                current_y -= 1
-                continue
-
-            if character.isnumeric():
-                current_x += int(character) - 1
-
-            if current_y == position[1] and current_x >= position[0]:
-                return i
-            
-            current_x += 1
-
-    def get_piece_at_position(self, position):
-        cell = self.fen_string[self.get_position_index(position)]
-        return " " if cell.isnumeric() else cell
-    
-    def get_piece_at_square(self, square):
-        return self.get_piece_at_position(square_to_position(square))
-    
-    def set_piece_at_position(self, position, piece):
-        index = self.get_position_index(position)
-        row = self.fen_string_parts[0].split("/")[7 - position[1]]
-
-        current_x = 0
-        i = 0
-        for i, character in enumerate(row):
-            int_character = int(character) if character.isnumeric() else None
-            current_x += int_character - 1 if int_character is not None else 0
-
-            if current_x >= position[0]:
-                empty_squares_after = current_x - position[0]
-                character_before_is_numeric = False
-                character_after_is_numeric = False
-                if int_character is None:
-                    character_before = row[i - 1] if i > 0 else "def not a number"
-                    character_before_is_numeric = character_before.isnumeric()
-                    empty_squares_before = int(character_before) if character_before_is_numeric else 0
-                    character_after = row[i + 1] if i < len(row) - 1 else "def not a number"
-                    character_after_is_numeric = character_after.isnumeric()
-                    empty_squares_after += int(character_after) if character_after_is_numeric else 0
-                else:
-                    empty_squares_before = int_character - empty_squares_after - 1
-                break
-            
-            current_x += 1
-        
-        if piece != " ":
-            replacement = f"{empty_squares_before if empty_squares_before > 0 else ""}{piece}{empty_squares_after if empty_squares_after > 0 else ""}"
+    def print(self, flip=False):
+        if not flip:
+            for i, row in enumerate(self.board):
+                print(f"{8 - i} {"".join([f"\x1b[{"47" if (j + i) % 2 == 0 else "40"}m{cell} \x1b[0m" for j, cell in enumerate("".join(row).translate(fen_string_translation_table))])}")
+            print("  a b c d e f g h")
         else:
-            replacement = f"{empty_squares_before + 1 + empty_squares_after}"
-        
-        self.fen_string = f"{self.fen_string[:index - (1 if character_before_is_numeric else 0)]}{replacement}{self.fen_string[index + 1 + (1 if character_after_is_numeric else 0):]}"
-    
-    def set_piece_at_square(self, square, piece):
-        self.set_piece_at_position(square_to_position(square), piece)
+            for i, row in enumerate(self.flipped_board):
+                print(f"{i + 1} {"".join([f"\x1b[{"47" if (j + i) % 2 == 0 else "40"}m{cell} \x1b[0m" for j, cell in enumerate("".join(row).translate(fen_string_translation_table))])}")
+            print("  h g f e d c b a")
     
     def change_piece_position(self, start_position, end_position):
-        self.set_piece_at_position(end_position, self.get_piece_at_position(start_position))
-        self.set_piece_at_position(start_position, " ")
+        self.board[end_position[1]][end_position[0]] = self.board[start_position[1]][start_position[0]]
+        self.board[start_position[1]][start_position[0]] = " "
     
     def change_piece_square(self, start_square, end_square):
         self.change_piece_position(square_to_position(start_square), square_to_position(end_square))
-
-    def positions_are_empty(self, *positions):
-        return all([self.get_piece_at_position(position) == " " for position in positions])
-
-    def squares_are_empty(self, *squares):
-        return self.positions_are_empty(*[square_to_position(square) for square in squares])
     
     def move(self, move):
         simplified_move = move.translate(simplify_move_translation_table)
-
-        turn = self.fen_string_parts[1]
 
         piece = None
         suggested_start_position = None
@@ -186,58 +134,54 @@ class Game:
             suggested_start_position = square_to_position(simplified_move[1:3])
             end_position = square_to_position(simplified_move[4:])
         
-        if promotion is not None:
-            if (turn == "w" and end_position[1] != 7) or (turn == "b" and end_position[1] != 0):
-                raise ValueError(f"Cannot perform move {move}: cannot promote on this rank")
-        else:
-            if piece in ["P", "p"] and ((turn == "w" and end_position[1] == 7) or (turn == "b" and end_position[1] == 0)):
+        if promotion is None:
+            print(end_position[1])
+            if piece.lower() == "p" and ((self.turn == "w" and end_position[1] == 0) or (self.turn == "b" and end_position[1] == 7)):
                 raise ValueError(f"Cannot perform move {move}: move should be written as a promotion")
+        else:
+            if (self.turn == "w" and end_position[1] != 0) or (self.turn == "b" and end_position[1] != 7):
+                raise ValueError(f"Cannot perform move {move}: cannot promote on this rank")
         
         if check or checkmate:
             previous_fen_string = self.fen_string
-        
-        piece = piece.upper() if turn == "w" else piece.lower()
        
         if castle is not None:
-            castle = castle.upper() if turn == "w" else castle.lower()
+            castle = castle.upper() if self.turn == "w" else castle.lower()
 
-            if castle not in self.fen_string_parts[2]:
+            if not self.castle_rights[castle]:
                 raise ValueError(f"Cannot perform move {move}: cannot castle")
             
-            if castle == "K" and self.squares_are_empty("f1", "g1"):
-                self.change_piece_square("e1", "g1")
-                self.change_piece_square("h1", "f1")
-            elif castle == "Q" and self.squares_are_empty("d1", "c1"):
-                self.change_piece_square("e1", "c1")
-                self.change_piece_square("a1", "d1")
-            elif castle == "k" and self.squares_are_empty("f8", "g8"):
-                self.change_piece_square("e8", "g8")
-                self.change_piece_square("h8", "f8")
-            elif castle == "q" and self.squares_are_empty("d8", "c8"):
-                self.change_piece_square("e8", "c8")
-                self.change_piece_square("a8", "d8")
+            if castle == "K" and " " == self.board[7][5] == self.board[7][6]:
+                self.change_piece_position([4, 7], [6, 7])
+                self.change_piece_position([7, 7], [5, 7])
+            elif castle == "Q" and " " == self.board[7][3] == self.board[7][2]:
+                self.change_piece_position([4, 7], [2, 7])
+                self.change_piece_position([0, 7], [3, 7])
+            elif castle == "k" and " " == self.board[0][5] == self.board[0][6]:
+                self.change_piece_position([4, 0], [6, 0])
+                self.change_piece_position([7, 0], [5, 0])
+            elif castle == "q" and " " == self.board[0][3] == self.board[0][2]:
+                self.change_piece_position([4, 0], [2, 0])
+                self.change_piece_position([0, 0], [3, 0])
             else:
                 raise ValueError(f"Cannot perform move {move}: cannot castle")
             
-            if turn == "w":
-                new_fen_string_part = self.fen_string_parts[2].replace("K", "").replace("Q", "")
+            if self.turn == "w":
+                self.castle_rights["K"] = self.castle_rights["Q"] = False
             else:
-                new_fen_string_part = self.fen_string_parts[2].replace("k", "").replace("q", "")
-            if new_fen_string_part == "":
-                new_fen_string_part = "-"
-            self.set_fen_string_part(2, new_fen_string_part)
+                self.castle_rights["k"] = self.castle_rights["q"] = False
         else:
-            piece_at_end_position = self.get_piece_at_position(end_position)
+            piece_at_end_position = self.board[end_position[1]][end_position[0]]
 
-            if (capture and (piece_at_end_position == " " or (piece_at_end_position.isupper() and turn == "w") or (not (piece_at_end_position.isupper()) and turn == "b"))) or (not (capture) and piece_at_end_position != " "):
+            if (capture and (piece_at_end_position == " " or (self.turn == "w" and piece_at_end_position.isupper()) or (self.turn == "b" and piece_at_end_position.islower()))) or (not (capture) and piece_at_end_position != " "):
                 raise ValueError(f"Cannot perform move {move}: end position is invalid for this move")
             
-            piece = piece.upper() if turn == "w" else piece.lower()
             # en_passant_target = self.fen_string_parts[3]
+            piece = piece.upper() if self.turn == "w" else piece.lower()
 
-            match piece:
-                case "P" | "p":
-                    direction = -1 if turn == "w" else 1
+            match piece.lower():
+                case "p":
+                    direction = 1 if self.turn == "w" else -1
                     if capture:
                         possible_start_positions = [
                             [end_position[0] - 1, end_position[1] + direction],
@@ -245,17 +189,17 @@ class Game:
                         ]
                     else :
                         possible_start_positions = [[end_position[0], end_position[1] + direction]]
-                        if end_position[1] == (3 if turn == "w" else 4):
+                        if end_position[1] == (4 if self.turn == "w" else 3):
                             possible_start_positions.append([end_position[0], end_position[1] + direction * 2])
-                case "B" | "b":
-                    left, right, down, up = end_position[0], 7 - end_position[0], end_position[1], 7 - end_position[1]
+                case "b":
+                    left, right, up, down = end_position[0], 7 - end_position[0], end_position[1], 7 - end_position[1]
                     possible_start_positions = [
-                        *[[end_position[0] - i, end_position[1] - i] for i in range(1, min(left, down) + 1)],
-                        *[[end_position[0] - i, end_position[1] + i] for i in range(1, min(left, up) + 1)],
-                        *[[end_position[0] + i, end_position[1] - i] for i in range(1, min(right, down) + 1)],
-                        *[[end_position[0] + i, end_position[1] + i] for i in range(1, min(right, up) + 1)]
+                        *[[end_position[0] - i, end_position[1] - i] for i in range(1, min(left, up) + 1)],
+                        *[[end_position[0] - i, end_position[1] + i] for i in range(1, min(left, down) + 1)],
+                        *[[end_position[0] + i, end_position[1] - i] for i in range(1, min(right, up) + 1)],
+                        *[[end_position[0] + i, end_position[1] + i] for i in range(1, min(right, down) + 1)]
                     ]
-                case "N" | "n":
+                case "n":
                     possible_start_positions = []
                     for i in range(2):
                         dx = i % 2 + 1
@@ -275,27 +219,27 @@ class Game:
                                     continue
 
                                 possible_start_positions.append([new_x, new_y])
-                case "R" | "r":
-                    left, right, down, up = end_position[0], 7 - end_position[0], end_position[1], 7 - end_position[1]
+                case "r":
+                    left, right, up, down = end_position[0], 7 - end_position[0], end_position[1], 7 - end_position[1]
                     possible_start_positions = [
                         *[[end_position[0] - i, end_position[1]] for i in range(1, left + 1)],
                         *[[end_position[0] + i, end_position[1]] for i in range(1, right + 1)],
-                        *[[end_position[0], end_position[1] - i] for i in range(1, down + 1)],
-                        *[[end_position[0], end_position[1] + i] for i in range(1, up + 1)],
+                        *[[end_position[0], end_position[1] - i] for i in range(1, up + 1)],
+                        *[[end_position[0], end_position[1] + i] for i in range(1, down + 1)],
                     ]
-                case "Q" | "q":
-                    left, right, down, up = end_position[0], 7 - end_position[0], end_position[1], 7 - end_position[1]
+                case "q":
+                    left, right, up, down = end_position[0], 7 - end_position[0], end_position[1], 7 - end_position[1]
                     possible_start_positions = [
-                        *[[end_position[0] - i, end_position[1] - i] for i in range(1, min(left, down) + 1)],
-                        *[[end_position[0] - i, end_position[1] + i] for i in range(1, min(left, up) + 1)],
-                        *[[end_position[0] + i, end_position[1] - i] for i in range(1, min(right, down) + 1)],
-                        *[[end_position[0] + i, end_position[1] + i] for i in range(1, min(right, up) + 1)],
+                        *[[end_position[0] - i, end_position[1] - i] for i in range(1, min(left, up) + 1)],
+                        *[[end_position[0] - i, end_position[1] + i] for i in range(1, min(left, down) + 1)],
+                        *[[end_position[0] + i, end_position[1] - i] for i in range(1, min(right, up) + 1)],
+                        *[[end_position[0] + i, end_position[1] + i] for i in range(1, min(right, down) + 1)],
                         *[[end_position[0] - i, end_position[1]] for i in range(1, left + 1)],
                         *[[end_position[0] + i, end_position[1]] for i in range(1, right + 1)],
-                        *[[end_position[0], end_position[1] - i] for i in range(1, down + 1)],
-                        *[[end_position[0], end_position[1] + i] for i in range(1, up + 1)],
+                        *[[end_position[0], end_position[1] - i] for i in range(1, up + 1)],
+                        *[[end_position[0], end_position[1] + i] for i in range(1, down + 1)],
                     ]
-                case "K" | "k":
+                case "k":
                     possible_start_positions = []
                     for i in range(-1, 2):
                         new_x = end_position[0] + i
@@ -310,7 +254,7 @@ class Game:
                                 continue
                             
                             possible_start_positions.append([new_x, new_y])
-                
+
             # probably should write code that skips the searching stuff and just does things custom to each piece, but that's for later
             if isinstance(suggested_start_position, list):
                 if None in suggested_start_position:
@@ -320,20 +264,23 @@ class Game:
                     to_check = 2
             else:
                 to_check = 0
+            
+            print(possible_start_positions)
+            print(piece)
 
             start_position = None
             for position in possible_start_positions:
-                if (to_check == 1 and position[should_match] != suggested_start_position[should_match]) or (to_check == 2 and position != suggested_start_position) or self.get_piece_at_position(position) != piece:
+                if (to_check == 1 and position[should_match] != suggested_start_position[should_match]) or (to_check == 2 and position != suggested_start_position) or self.board[position[1]][position[0]] != piece:
                     continue
 
-                if piece not in ["N", "n"]:
+                if piece.lower() != "n":
                     direction = [sign(end_position[0] - position[0]), sign(end_position[1] - position[1])]
                     should_be_empty = [
                         [x, y] for x, y in zip(range(position[0] + direction[0], end_position[0]), range(position[1] + direction[1], end_position[1]))
                     ] if capture else [
                         [x, y] for x, y in zip(range(position[0] + direction[0], end_position[0] - direction[0]), range(position[1] + direction[1], end_position[1] - direction[1]))
                     ]
-                    if not self.positions_are_empty(*should_be_empty):
+                    if not all(self.board[position[1]][position[0]] == " " for position in should_be_empty):
                         continue
 
                 # add more checks ig
@@ -350,24 +297,29 @@ class Game:
                 self.set_piece_at_position(start_position, " ")
                 self.set_piece_at_position(end_position, promotion)
         
-        self.set_fen_string_part(1, "b" if turn == "w" else "w")
-        if piece == "R":
-            if start_position == [7, 0]:
-                self.set_fen_string_part(2, self.fen_string_parts[2].replace("K", ""))
-            if start_position == [0, 0]:
-                self.set_fen_string_part(2, self.fen_string_parts[2].replace("Q", ""))
-        if piece == "r":
-            if start_position == [7, 7]:
-                self.set_fen_string_part(2, self.fen_string_parts[2].replace("k", ""))
-            if start_position == [0, 7]:
-                self.set_fen_string_part(2, self.fen_string_parts[2].replace("q", ""))
-        self.set_fen_string_part(4, int(self.fen_string_parts[4]) + 1 if not (capture or piece in ["P", "p"]) else 0) # check if this goes over 100?
-        if turn == "b":
-            self.set_fen_string_part(5, int(self.fen_string_parts[5]) + 1)
+        if piece is not None and piece.lower() == "r":
+            if self.turn == "w":
+                if start_position == [7, 0]:
+                    self.castle_rights["K"] = False
+                if start_position == [0, 0]:
+                    self.castle_rights["Q"] = False
+            else:
+                if start_position == [7, 7]:
+                    self.castle_rights["k"] = False
+                if start_position == [0, 7]:
+                    self.castle_rights["q"] = False
+
+        if len(self.move_history) == 0:
+            self.move_history.append([])
+        self.move_history[-1].append(move)
+        if self.turn == "b":
+            self.move_history.append([])
+
+        self.turn = "b" if self.turn == "w" else "w"
+
+        self.halfmove_clock = self.halfmove_clock + 1 if (piece is None or piece.lower() != "p") and not capture else 0 # check if this goes over 100?
         
         # if not check/checkmate but it should be according to the move, self.fen_string = previous_fen_string
-
-        self.move_history.append(move)
 
 # game = Game(fen_string="r1bqkbnr/ppppppPp/2n5/8/8/8/PPPPPPP1/RNBQKBNR w KQkq - 1 5")
 game = Game()
@@ -392,13 +344,11 @@ while True:
     match user_input:
         case "stop":
             break
-        case "fen" | "history" | "draw" | "resign":
+        case "history" | "draw" | "resign":
             print()
             match user_input:
-                case "fen":
-                    print(f"Current FEN string: {game.fen_string}")
-                case "history":
-                    print(f"Current game history:\n{"\n".join(game.move_history)}")
+                # case "history":
+                #     print(f"Current game history:\n{"\n".join(game.move_history)}")
                 case "draw":
                     print("Draw offered")
                     ...
@@ -408,11 +358,11 @@ while True:
             
             input("\nPress 'Enter' to continue")
         case _:
-            try:
+            # try:
                 game.move(user_input)
-            except BaseException as error:
-                print(f"Bad move: {error}")
+            # except BaseException as error:
+            #     print(f"Bad move: {error}")
     
-    print("\x1b[1;1H\x1b[2J\x1b[3J", end="")
+    # print("\x1b[1;1H\x1b[2J\x1b[3J", end="")
 
     # add 75 move rule and 50 move rule ig
