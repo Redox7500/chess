@@ -1,4 +1,4 @@
-piece_emojis = {
+piece_emoji_translation_table = str.maketrans({
     "P":"♙",
     "B":"♗",
     "N":"♘",
@@ -10,11 +10,9 @@ piece_emojis = {
     "n":"♞",
     "r":"♜",
     "q":"♛",
-    "k":"♚",
-    " ":" "
-}
-fen_string_translation_table = str.maketrans({str(number):" " * number for number in range(1, 9)} | piece_emojis)
-
+    "k":"♚"
+})
+space_translation_table = str.maketrans({str(number):" " * number for number in range(1, 9)})
 simplify_move_translation_table = str.maketrans({"+":"", "#":"", "=":""})
 
 def sign(value):
@@ -53,7 +51,7 @@ def position_to_square(position):
     return f"{file}{rank}"
 
 class Game:
-    def __init__(self, board=None, turn=None, castle_rights=None, en_passant_target=None, halfmove_clock=None, move_history=None):
+    def __init__(self, board=None, turn=None, castle_rights=None, en_passant_target=None, halfmove_clock=None, move_history=None, fen_string=None):
         self.board = [
             ["r", "n", "b", "q", "k", "b", "n", "r"],
             ["p", "p", "p", "p", "p", "p", "p", "p"],
@@ -74,10 +72,9 @@ class Game:
         self.en_passant_target = None if en_passant_target is None else en_passant_target
         self.halfmove_clock = 0 if halfmove_clock is None else halfmove_clock
         self.move_history = [] if move_history is None else move_history
-   
-    @property
-    def flipped_board(self):
-        return [row[::-1] for row in self.board[::-1]]
+
+        if fen_string is not None:
+            self.fen_string = fen_string
     
     @property
     def fen_string(self):
@@ -96,9 +93,7 @@ class Game:
     @fen_string.setter
     def fen_string(self, fen_string):
         parts = fen_string.split(" ")
-        self.board = [list(row.translate(str.maketrans({str(number):" " * number for number in range(1, 9)}))) for row in parts[0].split("/")]
-        # print(flat_board)
-        # self.board = [list(row) for row in flat_board]
+        self.board = [list(row.translate(space_translation_table)) for row in parts[0].split("/")]
         self.turn = parts[1]
         self.castle_rights = {key:key in parts[2] for key in "KQkq"}
         self.en_passant_target = parts[3] if parts[3] != "-" else None
@@ -108,11 +103,11 @@ class Game:
     def print_board(self, can_flip=False):
         if self.turn == "w" or not can_flip:
             for i, row in enumerate(self.board):
-                print(f"{8 - i} {"".join([f"\x1b[{"47" if (j + i) % 2 == 0 else "40"}m{cell} \x1b[0m" for j, cell in enumerate("".join(row).translate(fen_string_translation_table))])}")
+                print(f"{8 - i} {"".join([f"\x1b[{"47" if (j + i) % 2 == 0 else "40"}m{cell} \x1b[0m" for j, cell in enumerate("".join(row).translate(piece_emoji_translation_table))])}")
             print("  a b c d e f g h")
         else:
-            for i, row in enumerate(self.flipped_board):
-                print(f"{i + 1} {"".join([f"\x1b[{"47" if (j + i) % 2 == 0 else "40"}m{cell} \x1b[0m" for j, cell in enumerate("".join(row).translate(fen_string_translation_table))])}")
+            for i, row in enumerate([row[::-1] for row in self.board[::-1]]):
+                print(f"{i + 1} {"".join([f"\x1b[{"47" if (j + i) % 2 == 0 else "40"}m{cell} \x1b[0m" for j, cell in enumerate("".join(row).translate(piece_emoji_translation_table))])}")
             print("  h g f e d c b a")
    
     def change_piece_position(self, start_position, end_position):
@@ -390,9 +385,7 @@ class Game:
        
         # if not check/checkmate but it should be according to the move, self.fen_string = previous_fen_string
 
-# game = Game(fen_string="r1bqkbnr/ppppppPp/2n5/8/8/8/PPPPPPP1/RNBQKBNR w KQkq - 1 5")
-game = Game()
-game.fen_string = "r1bqkbnr/ppppppPp/2n5/8/8/8/PPPPPPP1/RNBQKBNR w KQkq - 1 5"
+game = Game(fen_string="r1bqkbnr/ppppppPp/2n5/8/8/8/PPPPPPP1/RNBQKBNR w KQkq - 1 5")
 
 # previous_moves = [
 #     "e4", "e5",
