@@ -78,18 +78,9 @@ class Game:
     @property
     def flipped_board(self):
         return [row[::-1] for row in self.board[::-1]]
-   
-    def print_board(self, can_flip=False):
-        if self.turn == "w" or not can_flip:
-            for i, row in enumerate(self.board):
-                print(f"{8 - i} {"".join([f"\x1b[{"47" if (j + i) % 2 == 0 else "40"}m{cell} \x1b[0m" for j, cell in enumerate("".join(row).translate(fen_string_translation_table))])}")
-            print("  a b c d e f g h")
-        else:
-            for i, row in enumerate(self.flipped_board):
-                print(f"{i + 1} {"".join([f"\x1b[{"47" if (j + i) % 2 == 0 else "40"}m{cell} \x1b[0m" for j, cell in enumerate("".join(row).translate(fen_string_translation_table))])}")
-            print("  h g f e d c b a")
-   
-    def get_fen_string(self):
+    
+    @property
+    def fen_string(self):
         board_string = "/".join(["".join(row) for row in self.board])
         for i in range(8, 0, -1):
             board_string = board_string.replace(" " * i, str(i))
@@ -101,16 +92,28 @@ class Game:
         en_passant_string = position_to_square(self.en_passant_target) if self.en_passant_target is not None else "-"
        
         return f"{board_string} {self.turn} {castle_string} {en_passant_string} {self.halfmove_clock} {len(self.move_history)}"
-   
-    def set_fen_string(self, fen_string):
+    
+    @fen_string.setter
+    def fen_string(self, fen_string):
         parts = fen_string.split(" ")
-        flat_board = parts[0].split("/").translate({str(number):" " * number for number in range(1, 9)})
-        self.board = [flat_board[i:i + 8] for i in range(0, 64, 8)]
+        self.board = [list(row.translate(str.maketrans({str(number):" " * number for number in range(1, 9)}))) for row in parts[0].split("/")]
+        # print(flat_board)
+        # self.board = [list(row) for row in flat_board]
         self.turn = parts[1]
         self.castle_rights = {key:key in parts[2] for key in "KQkq"}
         self.en_passant_target = parts[3] if parts[3] != "-" else None
         self.halfmove_clock = int(parts[4])
-        self.move_history = [[] for i in range(parts[5])]
+        self.move_history = [[] for i in range(int(parts[5]))]
+
+    def print_board(self, can_flip=False):
+        if self.turn == "w" or not can_flip:
+            for i, row in enumerate(self.board):
+                print(f"{8 - i} {"".join([f"\x1b[{"47" if (j + i) % 2 == 0 else "40"}m{cell} \x1b[0m" for j, cell in enumerate("".join(row).translate(fen_string_translation_table))])}")
+            print("  a b c d e f g h")
+        else:
+            for i, row in enumerate(self.flipped_board):
+                print(f"{i + 1} {"".join([f"\x1b[{"47" if (j + i) % 2 == 0 else "40"}m{cell} \x1b[0m" for j, cell in enumerate("".join(row).translate(fen_string_translation_table))])}")
+            print("  h g f e d c b a")
    
     def change_piece_position(self, start_position, end_position):
         self.board[end_position[1]][end_position[0]] = self.board[start_position[1]][start_position[0]]
@@ -389,8 +392,9 @@ class Game:
 
 # game = Game(fen_string="r1bqkbnr/ppppppPp/2n5/8/8/8/PPPPPPP1/RNBQKBNR w KQkq - 1 5")
 game = Game()
+game.fen_string = "r1bqkbnr/ppppppPp/2n5/8/8/8/PPPPPPP1/RNBQKBNR w KQkq - 1 5"
 
-previous_moves = [
+# previous_moves = [
 #     "e4", "e5",
 #     "Nf3", "Nf6",
 #     "Bc4", "Bc5",
@@ -401,11 +405,11 @@ previous_moves = [
 #     "h6", "Nc6",
 #     "hxg7", "Nb8",
    
-    "Nc3", "h5",
-    "Nb1", "h4",
-]
-for move in previous_moves:
-    game.move(move)
+#     "Nc3", "h5",
+#     "Nb1", "h4",
+# ]
+# for move in previous_moves:
+#     game.move(move)
 
 user_input = None
 while True:
@@ -422,7 +426,7 @@ while True:
             print()
             match user_input:
                 case "fen":
-                    print(game.get_fen_string())
+                    print(game.fen_string)
                 case "history":
                     print(f"Current game history:\n{"\n".join([f"{i + 1}. {row[0]} {row[1] if len(row) == 2 else ""}" for i, row in enumerate(game.move_history)])}")
                 case "draw":
